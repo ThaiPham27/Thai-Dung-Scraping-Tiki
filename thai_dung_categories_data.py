@@ -63,6 +63,7 @@ class Category:
         self.total_sub_category = total_sub_category
         self.parent_id = parent_id
 
+
     def __repr__(self):
         return f"ID: {self.cat_id}, Name: {self.name}, URL: {self.url}, Level: {self.level}, Total sub-category: {self.total_sub_category}, Parent: {self.parent_id}"
 
@@ -161,7 +162,7 @@ def get_sub_categories(parent_category, save_db = False):
 
 # get_all_categories() given a list of main categories 
 def get_all_categories(categories,save_db=False):
-    if len(categories) == 0 or len(categories) > 500:
+    if len(categories) == 0:
         return
     for cat in categories:
         sub_categories = get_sub_categories(cat, save_db = save_db)
@@ -187,5 +188,7 @@ create_categories_table()
 main_categories = get_main_categories(save_db = True)
 
 get_all_categories(main_categories, save_db = True)
+
+# cur.execute('''SELECT * FROM categories;''').fetchall()
 
 add_column_categories()

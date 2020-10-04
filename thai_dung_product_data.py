@@ -20,6 +20,11 @@ def create_products_table():
         product_brand VARCHAR(255),
         category_id INTEGER,
         product_link TEXT,
+        product_image_link TEXT,
+        original_price INTEGER,
+        discount_p FLOAT,
+        rating_p FLOAT,
+        number_of_reviews INTEGER,
         page INTEGER,
         create_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) """
@@ -29,6 +34,20 @@ def create_products_table():
         conn.commit()
     except Exception as err:
         print("ERROR BY CREATE TABLE", err)
+
+def update_total_pages_products_categories(cat_id, total_pages, total_products):
+    query = """
+        UPDATE categories
+        SET total_pages = ?,
+            total_products = ?
+        WHERE id = ?;
+    """
+    val = (total_pages, total_products, cat_id)
+    try:
+        cur.execute(query, val)
+        conn.commit()
+    except Exception as err:
+        print('ERROR BY UPDATE CATEGORIES:', err)
 
 def get_html(link):
     """ From URL return HTML code in the website.
@@ -49,7 +68,7 @@ class Product:
         instance method: save_into_db()
     """
 
-    def __init__(self,product_id,product_sku,product_name,current_price,data_id, product_brand,product_link, category_id = None, page = None):
+    def __init__(self,product_id,product_sku,product_name,current_price,data_id, product_brand,product_link,product_image_link, original_price, discount_p, rating_p, number_of_reviews, item_id = None, category_id = None, page = None):
         self.product_id = product_id
         self.product_sku = product_sku
         self.product_name = product_name
@@ -59,12 +78,44 @@ class Product:
         self.product_link = product_link
         self.category_id = category_id
         self.page = page
+        self.product_image_link = product_image_link
+        self.original_price = original_price
+        self.discount_p = discount_p
+        self.rating_p = rating_p
+        self.number_of_reviews = number_of_reviews
+
 
     def save_into_db(self):
-        query = """ INSERT INTO tiki_products (product_id, product_sku, product_name, data_id, current_price, product_brand, category_id,product_link, page)
-        VALUES (?,?,?,?,?,?,?,?,?) """
+        query = """ INSERT INTO tiki_products (product_id, 
+        product_sku, 
+        product_name, 
+        data_id, 
+        current_price, 
+        product_brand, 
+        category_id,
+        product_link,
+        original_price,
+        product_image_lin,
+        number_of_reviews,
+        rating_p,
+        discount_p, 
+        page)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?) """
 
-        val = (self.product_id, self.product_sku, self.product_name, self.current_price, self.data_id, self.product_brand, self.product_link, self.category_id, self.page)
+        val = (self.product_id, 
+        self.product_sku, 
+        self.product_name, 
+        self.current_price, 
+        self.data_id, 
+        self.product_brand, 
+        self.product_link, 
+        self.category_id, 
+        self.product_image_link,
+        self.original_price,
+        self.rating_p,
+        self.discount_p,
+        self.number_of_reviews,
+        self.page)
         try:
             cur.execute(query, val)
             self.cat_id = cur.lastrowid
@@ -103,8 +154,38 @@ def get_data(item_html, crawled_url_list):
         product_brand = item_html['data-brand']
 
         product_link = "https://tiki.vn" + item_html['href']
+        product_image_link = item_html.a.img['src']
 
-        result = Product(product_id,product_sku,product_name, data_id, current_price, product_brand, product_link)
+        try:
+            original_price = item_html.find('span', {'class':'price-regular'}).text
+            original_price = int(re.sub(r'\.|đ', '', original_price))
+
+            discount_p = item_html.find('span', {'class':'sale-tag sale-tag-square'}).text
+            discount_p = float(re.sub(r'-|%', '', discount_p))
+        except:
+            original_price = current_price
+            discount_p = 0
+
+        # get number_of_reviews
+        try:
+            rating_section = item_html.find('div', {'class':'review-wrap'})
+        
+            number_of_reviews = rating_section.find('p', {'class':'review'}).text
+            number_of_reviews = int(re.sub(r'\(| nhận xét\)', '', number_of_reviews))
+        except:
+            number_of_reviews = 0
+
+        # getting to rating_pct
+        try:
+            p_rating = rating_section.find('p', {'class':'rating'})
+            span_rating = p_rating.find('span', {'class':'rating-content'})
+            
+            rating_p = span_rating.span['style']
+            rating_p = float(re.sub(r'width:|%', '', rating_p))
+        except:
+            rating_p = 0
+
+        result = Product(product_id, product_sku, product_name, current_price, data_id, product_brand, product_link, product_image_link, original_price, discount_p, rating_p, number_of_reviews)
 
     else:
         result = "crawled"
@@ -114,7 +195,7 @@ def get_data(item_html, crawled_url_list):
 create_products_table()
 
 # get all categories that are not crawled yet
-category_nc = pd.read_sql_query(''' 
+df_category = pd.read_sql_query(''' 
 SELECT *
 FROM categories
 WHERE total_sub_category = 0
@@ -122,24 +203,24 @@ AND total_pages is NULL
  ''', conn)
 
 # get the last category that is crawled
-category_crawled = pd.read_sql_query('''
+df_category_crawled = pd.read_sql_query('''
 SELECT *
 FROM categories
 WHERE total_sub_category = 0
 AND total_pages IS NOT NULL
 ORDER BY Id DESC
 LIMIT 1
-'''
+''',conn
 )
 
-category_nc = pd.concat([category_crawled, cateogry_nc], sort = False)
+df_category = pd.concat([df_category_crawled, df_category], sort=False)
 
-category_url_list = category_nc['url'].toList()
-category_id_list = category_nc['id'].toList()
-category_total_pages_list = category_nc['total_pages'].toList()
-category_total_product_list = category_nc['total_products'].toList()
+df_category_url_list = df_category['url'].tolist()
+df_category_id_list = df_category['id'].tolist()
+df_category_total_pages_list = df_category['total_pages'].tolist()
+df_category_total_products_list = df_category['total_products'].tolist()
 
-for cat_link, cat_id, cat_pages, cat_products in zip(category_url_list, category_id_list, category_total_pages_list, category_total_product_list):
+for cat_link, cat_id, cat_pages, cat_products in zip(df_category_url_list, df_category_id_list, df_category_total_pages_list, df_category_total_products_list):
 
     number_of_products = 1
 
@@ -148,7 +229,7 @@ for cat_link, cat_id, cat_pages, cat_products in zip(category_url_list, category
     else:
         page_number = cat_pages
 
-tiki_link = cat_page +'&page='
+tiki_link = cat_link +'&page='
 
 while number_of_products > 0:
     try:
