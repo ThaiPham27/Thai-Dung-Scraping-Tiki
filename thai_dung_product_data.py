@@ -195,7 +195,7 @@ def get_data(item_html, crawled_url_list):
 create_products_table()
 
 # get all categories that are not crawled yet
-df_category = pd.read_sql_query(''' 
+category = pd.read_sql_query(''' 
 SELECT *
 FROM categories
 WHERE total_sub_category = 0
@@ -203,7 +203,7 @@ AND total_pages is NULL
  ''', conn)
 
 # get the last category that is crawled
-df_category_crawled = pd.read_sql_query('''
+category_crawled = pd.read_sql_query('''
 SELECT *
 FROM categories
 WHERE total_sub_category = 0
@@ -213,12 +213,12 @@ LIMIT 1
 ''',conn
 )
 
-df_category = pd.concat([df_category_crawled, df_category], sort=False)
+category = pd.concat([category_crawled, category], sort=False)
 
-df_category_url_list = df_category['url'].tolist()
-df_category_id_list = df_category['id'].tolist()
-df_category_total_pages_list = df_category['total_pages'].tolist()
-df_category_total_products_list = df_category['total_products'].tolist()
+df_category_url_list = category['url'].tolist()
+df_category_id_list = category['id'].tolist()
+df_category_total_pages_list = category['total_pages'].tolist()
+df_category_total_products_list = category['total_products'].tolist()
 
 for cat_link, cat_id, cat_pages, cat_products in zip(df_category_url_list, df_category_id_list, df_category_total_pages_list, df_category_total_products_list):
 
@@ -290,5 +290,5 @@ sleep(randint(1,5))
 
 print('Finish crawling')
 
-import os
-os.system('shutdown /p /f')
+# import os
+# os.system('shutdown /p /f')
